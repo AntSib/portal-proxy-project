@@ -1,97 +1,30 @@
-## Docker
-
-### Docker-compose
-
-Сертификация происходит при помощи связки nginx-proxy + acme-companion для контейнеров, которые имеют переменные:
-
-* ```VIRTUAL_HOST```;
-* ```LETSENCRYPT_HOST```;
-* ```LETSENCRYPT_EMAIL```.
-
-Для добавления домена используйте шаблон (есть с docker-compose):
-
-```yaml
-# Template for extra domains
-domain_n:
-  image: nginx:alpine
-  container_name: domain_n
-  depends_on:
-    - nginx-proxy
-  environment:
-    VIRTUAL_HOST: ${domain1_VIRTUAL_HOST}
-    LETSENCRYPT_HOST: ${domain_n_VIRTUAL_HOST}
-    # Для сертификации почта общая
-    LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
-  networks:
-    - nginx-internal
-  restart: unless-stopped
-```
-
-## .env
-
-```bash
-# .env.example
-# Почта для сертификации
-LETSENCRYPT_EMAIL=example@email.com
-
-# Данные для каждого домена
-DOMAIN_UPSTREAM_IP=<IP>
-DOMAIN_VIRTUAL_HOST=<doamin>
-```
-
-## Структура
-
-### Структура проекта
-
-```
-project/
-├─ .env.example
-├─ docker-compose.yaml
-└─ nginx-proxy/
-   ├─ nginx-proxy.Dockerfile
-   ├─ conf.d/
-   │  ├─ custom-global.conf
-   │  ├─ gzip.conf
-   │  ├─ headers.conf
-   │  └─ logging.conf
-   └─ vhost.d/
-      ├─ domain1.net
-      ├─ domain2.ru
-      └─ domain3.com
-```
-
-### Структура на хосте
-
-```
-$HOME/
-├─ .env                         # Удаляеться после развёртывания
-├─ docker-compose.yaml
-└─ nginx-proxy/
-   ├─ nginx-proxy.Dockerfile
-   ├─ conf.d/                   # Удаляеться после развёртывания
-   │  └─ ***
-   └─ vhost.d/                  # Удаляеться после развёртывания
-      └─ ***
-```
-
-## Как подключать домены?
-
-Чтобы добавить новый домен:
-
-1. Добавить сервис в docker-compose, используя шаблон.
-2. Добавить в .env:
-   * ```<domain>_UPSTREAM_IP=<IP>```;
-   * ```<domain>_VIRTUAL_HOST=<domain>```;
-   * ```<domain>_LETSENCRYPT_EMAIL=<email>```.
-3. Создать vhost.d/<имя_домена>.
-4. В vhost.d/<имя_домена> в ```location /``` > ```proxy_pass https://${<domain>_UPSTREAM_IP}:443;``` указать переменную окружения с IP этого домена.
-5. Перезапустить контейнер.
-
 # CI/CD
 
-**T***o*
-**B***e*
-**A***dded*
+### Логика развёртывания:
+0. Установка необходимых для работы пакетов __Sourcecraft__.
+1. Настройка SSH и known hosts.
+* При возникновении ошибки, в последующих шагах создаётся файл ```failure.reason``` с именем шага, на котором возникла ошибка.
+2. Синхронизация файлов с репозиторием (rsync).
+   * Исключаются файлы: 
+      * ```.git```;
+      * ```.gitignore```;
+      * ```.sourcecraft```;
+      * ```.env.example```;
+      * ```README.md```.
+* Последующие шаги происходят через shh сессии.
+3. Настройка ```.env```.
+   1. Файл ```.env``` заполняется с помощью функции ```update_env_var```.
+   2. Пример использования: ```update_env_var "<variable name>" "<value>"```.
+4. Остановка существующего контейнера и запуск нового.
+5. Если развертывание прошло успешно то:
+   1. Создаем новый бэкап.
+   2. Удаляем старый бэкап.
+6. При возникновении ошибки:
+   1. Удаляем новый бэкап.
+   2. Откатываемся к предыдущей версии.
+   3. На сервер отправляется файл с причиной ошибки ```failure.reason```.
+7. Удаление файлов конфигурации ```nginx-proxy``` и ```.env```
+
 
 
 # portal-proxy
@@ -188,7 +121,6 @@ nginx-proxy (Docker)
 * параметры выпуска сертификата.
 
 Эти данные используются nginx-proxy для автоматического создания виртуального хоста.
-
 
 
 
