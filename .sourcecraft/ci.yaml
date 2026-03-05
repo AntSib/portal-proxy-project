@@ -88,13 +88,9 @@ workflows:
                   }
 
                   echo "Setting environment variables..."
-                  update_env_var "VIRTUAL_HOST" "${{ secrets.VIRTUAL_HOST }}"
-                  update_env_var "LETSENCRYPT_HOST" "${{ secrets.LETSENCRYPT_HOST }}"
                   update_env_var "LETSENCRYPT_EMAIL" "${{ secrets.LETSENCRYPT_EMAIL }}"
-                  update_env_var "PORT" "${{ secrets.PORT }}"
-                  update_env_var "ADMIN_PASSWORD_HASH" "${{ secrets.ADMIN_PASSWORD_HASH }}"
-                  update_env_var "JWT_SECRET" "${{ secrets.JWT_SECRET }}"
-                  update_env_var "FRONTEND_URL" "${{ secrets.FRONTEND_URL }}"
+                  update_env_var "PR_CBS_VIRTUAL_HOST" "${{ secrets.PR_CBS_VIRTUAL_HOST }}"
+                  update_env_var "PR_CBS_VIRTUAL_HOST" "${{ secrets.PR_CBS_VIRTUAL_HOST }}"
 
                   ' && \
                   echo "Environment variables set successfully."
@@ -157,7 +153,7 @@ workflows:
 
                   echo "Backing up files..."
 
-                  # Check if DEPLOY_DIR (vbkg) directory is not empty
+                  # Check if DEPLOY_DIR (portal-proxy) directory is not empty
                   if [ "$(ls -A "${{ env.DEPLOY_DIR }}" 2>/dev/null)" ]; then
                     # Create encrypted backup
                     tar -cvzf - -C "${{ env.DEPLOY_DIR }}" . | \
@@ -299,8 +295,7 @@ workflows:
               cd ${{ env.DEPLOY_ABS_PATH }}
               
               echo "Cleaning up..."
-              rm -f vbkg_server/vbkg-pr-cbs-ru-ssl.conf
-              rm -f nginx-proxy/conf.d/nginx.conf
+              rm -f nginx-proxy/conf.d/
               rm -f .env
               echo "Cleanup completed."
               '
