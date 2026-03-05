@@ -1,0 +1,107 @@
+services:
+
+  nginx-proxy: # Прокси-сервер nginx-proxy для работы с acme-companion
+    build:
+      context: ./nginx-proxy
+      dockerfile: nginx-proxy.Dockerfile
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      # Том для хранения сертификатов
+      - certs:/etc/nginx/certs
+      # Том для хранения виртуальных хостов
+      - ./vhost.d:/etc/nginx/vhost.d
+      # Том для хранения конфигураций
+      - ./conf.d:/etc/nginx/conf.d
+      # Том для логирования
+      - ./logs:/var/log/nginx
+      # Том для хранения статики
+      - html:/usr/share/nginx/html
+    networks:
+      - nginx-internal
+    restart: always
+
+  acme-companion: # Контейнер автоматической сертификации
+    image: nginxproxy/acme-companion
+    container_name: nginx-proxy-acme
+    depends_on:
+      - nginx-proxy
+    env_file:
+      - .env
+    environment:
+      # Почта для сертификации
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+    volumes_from:
+      # Подключаем томы из nginx-proxy
+      - nginx-proxy
+    volumes:
+      # Том для docker events
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Том для хранения сертификатов
+      - certs:/etc/nginx/certs
+      # Том для хранения виртуальных хостов для сертификации
+      - vhost:/etc/nginx/vhost.d
+      # Том для хранения статики
+      - html:/usr/share/nginx/html
+      - acme:/etc/acme.sh
+    networks:
+      - nginx-internal
+    restart: always
+
+  # pr-cbs: # Контейнер, выступающий в роли заглушки для выдачи сертификата
+  #   image: nginx:alpine
+  #   container_name: pr-cbs
+  #   depends_on:
+  #     - nginx-proxy
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     VIRTUAL_HOST: ${PR_CBS_VIRTUAL_HOST}
+  #     LETSENCRYPT_HOST: ${PR_CBS_VIRTUAL_HOST}
+  #     LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+  #   networks:
+  #     - nginx-internal
+  #   restart: unless-stopped
+
+  vbkg: # Контейнер, выступающий в роли заглушки для выдачи сертификата
+    image: nginx:alpine
+    container_name: vbkg-server
+    depends_on:
+      - nginx-proxy
+    env_file:
+      - .env
+    environment:
+      VIRTUAL_HOST: ${VBKG_VIRTUAL_HOST}
+      LETSENCRYPT_HOST: ${VBKG_VIRTUAL_HOST}
+      LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+    networks:
+      - nginx-internal
+    restart: unless-stopped
+
+  # Template for extra domains
+  # domain_n:
+  #   image: nginx:alpine
+  #   container_name: domain_n
+  #   depends_on:
+  #     - nginx-proxy
+  #   environment:
+  #     VIRTUAL_HOST: ${domain1_VIRTUAL_HOST}
+  #     LETSENCRYPT_HOST: ${domain_n_VIRTUAL_HOST}
+  #     # Для сертификации почта общая
+  #     LETSENCRYPT_EMAIL: ${LETSENCRYPT_EMAIL}
+  #   networks:
+  #     - nginx-internal
+  #   restart: unless-stopped
+
+volumes:
+  acme:
+  certs:
+  vhost:
+  html:
+
+networks:
+  nginx-internal:
+    driver: bridge

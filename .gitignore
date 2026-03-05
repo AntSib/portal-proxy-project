@@ -1,0 +1,5 @@
+.vscode
+Project_private_notes
+
+nginx-proxy/.gitignore
+.env
